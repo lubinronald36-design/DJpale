@@ -16,4 +16,305 @@
   html,body{height:100%;margin:0;background:linear-gradient(180deg,#05050a 0%,#0b0b11 100%);font-family:Inter,Arial,Helvetica,sans-serif;color:#e6f7ff}
   .wrap{max-width:420px;margin:20px auto;padding:18px;border-radius:14px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 8px 40px rgba(0,0,0,0.6);text-align:center}
   h1{margin:6px 0 8px;font-size:20px;letter-spacing:1.5px}
-  .subtitle{fon…
+  .subtitle{font-size:12px;opacity:.8;margin-bottom:8px}
+  .btn{display:block;width:100%;padding:14px 12px;margin:8px 0;border-radius:var(--btn-radius);border:0;cursor:pointer;font-weight:700;color:white;font-size:15px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));box-shadow:0 6px 20px rgba(0,0,0,0.6);transition:transform .08s ease,box-shadow .08s;outline:none;text-align:left}
+  .btn:active{transform:translateY(1px)}
+  .labelSmall{font-size:12px;opacity:.85;margin-bottom:6px;text-align:left}
+  .small{font-size:12px;opacity:.75;margin-top:10px}
+  .neon.intro{ background: linear-gradient(90deg,var(--neon1),rgba(0,255,204,0.06)); box-shadow:0 8px 18px rgba(0,255,204,0.04),0 0 10px var(--neon1) inset; }
+  .neon.extra{ background: linear-gradient(90deg,var(--neon2),rgba(155,76,255,0.06)); box-shadow:0 8px 18px rgba(155,76,255,0.04),0 0 10px var(--neon2) inset; }
+  .neon.music{ background: linear-gradient(90deg,#00ffd1 30%, #9b4cff 100%); box-shadow:0 8px 18px rgba(100,70,255,0.04); }
+  .neon.voice{ background: linear-gradient(90deg,#33ffe0 20%, #6a4bff 100%); box-shadow:0 8px 18px rgba(100,70,255,0.04); }
+  .playing { filter: brightness(1.06) drop-shadow(0 6px 20px rgba(0,0,0,0.5)); }
+  .eq{display:flex;gap:6px;align-items:end;justify-content:center;margin-top:12px}
+  .bar{width:8px;height:12px;background:rgba(255,255,255,0.06);border-radius:4px;transition:height .08s linear, background .08s}
+  .bar.active{ background:linear-gradient(180deg,var(--neon1),#8b3cff); }
+  input[type=range]{width:100%;margin-top:10px}
+  .hint{font-size:11px;opacity:0.7;margin-top:8px}
+  @media (max-width:420px){ .wrap{margin:12px} .btn{padding:12px;font-size:14px} }
+</style>
+</head>
+<body>
+  <div class="wrap" id="panel">
+    <h1 class="neon">Neon Audio Panel</h1>
+    <div class="subtitle">Vertical layout — press or use keys (1–5 music, Q/W/E voices, S = Stop All)</div>
+
+    <div class="labelSmall">Music tracks (play / pause)</div>
+    <button id="cueBtn" class="btn neon music">Cue — cue.mp3 &nbsp; <span style="float:right">Key 1</span></button>
+    <button id="cue2Btn" class="btn neon music">Cue2 — cue2.mp3 &nbsp; <span style="float:right">Key 2</span></button>
+    <button id="ronyBtn" class="btn neon music">Rony — rony.mp3 &nbsp; <span style="float:right">Key 3</span></button>
+    <button id="sonyBtn" class="btn neon music">Sony — Sony.mp3 &nbsp; <span style="float:right">Key 4</span></button>
+    <button id="tonyBtn" class="btn neon music">Tony — tony.mp3 &nbsp; <span style="float:right">Key 5</span></button>
+
+    <div class="labelSmall" style="margin-top:8px">Voice tracks (exclusive — duck music)</div>
+    <button id="elpBtn" class="btn neon voice">Elp — elp.mp3 &nbsp; <span style="float:right">Key Q</span></button>
+    <button id="ronaldBtn" class="btn neon voice">Ronald — ronald.mp3 &nbsp; <span style="float:right">Key W</span></button>
+    <button id="voice3Btn" class="btn neon voice">Voice3 — voice3.mp3 &nbsp; <span style="float:right">Key E</span></button>
+
+    <button id="stopAll" class="btn neon extra">■ STOP ALL &nbsp; <span style="float:right">Key S</span></button>
+
+    <div class="labelSmall">Master volume</div>
+    <input id="masterVolume" type="range" min="0" max="100" value="100">
+
+    <div class="eq" id="eq">
+      <div class="bar" id="b1"></div>
+      <div class="bar" id="b2"></div>
+      <div class="bar" id="b3"></div>
+      <div class="bar" id="b4"></div>
+      <div class="bar" id="b5"></div>
+    </div>
+
+    <div class="hint">Tip: press keys or click buttons. Scrolling won't stop playback.</div>
+    <div class="small" id="status">Status: Ready</div>
+  </div>
+
+<script>
+/* ====== CONFIG ====== */
+const DUCK_VOLUME = 0.20;    // music volume while voice plays
+const NORMAL_VOLUME = 1.0;
+const FADE_STEP = 0.08;
+const FADE_INTERVAL = 40;
+
+/* ====== FILES ====== */
+const MUSIC = {
+  cue: "cue.mp3",
+  cue2: "cue2.mp3",
+  rony: "rony.mp3",
+  sony: "Sony.mp3",
+  tony: "tony.mp3"
+};
+const VOICES = {
+  elp: "elp.mp3",
+  ronald: "ronald.mp3",
+  voice3: "voice3.mp3"
+};
+
+/* ====== AUDIO OBJECTS ====== */
+const musicPlayers = {
+  cue: new Audio(MUSIC.cue),
+  cue2: new Audio(MUSIC.cue2),
+  rony: new Audio(MUSIC.rony),
+  sony: new Audio(MUSIC.sony),
+  tony: new Audio(MUSIC.tony)
+};
+Object.values(musicPlayers).forEach(p => { p.loop=false; p.preload="auto"; p._baseVolume = 1.0; });
+
+const voicePlayers = {
+  elp: new Audio(VOICES.elp),
+  ronald: new Audio(VOICES.ronald),
+  voice3: new Audio(VOICES.voice3)
+};
+Object.values(voicePlayers).forEach(p => { p.loop=false; p.preload="auto"; p._baseVolume = 1.0; });
+
+let masterVolume = 1.0;
+function applyMasterVolume(){
+  Object.values(musicPlayers).forEach(p => p.volume = Math.max(0, Math.min(1, (p._currentBase ?? p._baseVolume) * masterVolume)));
+  Object.values(voicePlayers).forEach(p => p.volume = Math.max(0, Math.min(1, p._baseVolume * masterVolume)));
+}
+
+/* ====== UI ====== */
+const statusEl = document.getElementById("status");
+const eqBars = [...document.querySelectorAll(".bar")];
+const masterEl = document.getElementById("masterVolume");
+
+const musicMap = {
+  cueBtn: musicPlayers.cue,
+  cue2Btn: musicPlayers.cue2,
+  ronyBtn: musicPlayers.rony,
+  sonyBtn: musicPlayers.sony,
+  tonyBtn: musicPlayers.tony
+};
+const voiceMap = {
+  elpBtn: voicePlayers.elp,
+  ronaldBtn: voicePlayers.ronald,
+  voice3Btn: voicePlayers.voice3
+};
+
+/* ====== State ====== */
+let activeVoiceId = null;      // id of the currently playing voice (exclusive)
+let voiceCount = 0;           // number of playing voices (for duck logic)
+let fadeInterval = null;
+
+/* ====== Helpers ====== */
+function setStatus(t){ statusEl.textContent = "Status: " + t; animateEQ(); }
+function animateEQ(){
+  const anyPlaying = Object.values(musicPlayers).some(p=>!p.paused) || Object.values(voicePlayers).some(p=>!p.paused);
+  if (anyPlaying){
+    eqBars.forEach(b => { b.classList.add("active"); b.style.height = (12 + Math.floor(Math.random()*60)) + "px"; });
+  } else {
+    eqBars.forEach((b,i) => { b.classList.remove("active"); b.style.height = (12 + i*3) + "px"; });
+  }
+}
+
+/* Smoothly fade current playing music players to target (duck/restore) */
+function fadeMusicPlayersTo(target, done){
+  clearInterval(fadeInterval);
+  fadeInterval = setInterval(() => {
+    let doneAll = true;
+    Object.values(musicPlayers).forEach(p=>{
+      // only fade players that have been started at least once (we track _currentBase)
+      if (p._currentBase === undefined) p._currentBase = p._baseVolume;
+      const cur = p._currentBase;
+      if (Math.abs(cur - target) > FADE_STEP){
+        p._currentBase = Math.max(0, Math.min(1, cur + (cur < target ? FADE_STEP : -FADE_STEP)));
+        doneAll = false;
+      } else {
+        p._currentBase = target;
+      }
+      // apply immediately scaled by master
+      p.volume = Math.max(0, Math.min(1, p._currentBase * masterVolume));
+    });
+    if (doneAll){
+      clearInterval(fadeInterval);
+      fadeInterval = null;
+      if (done) done();
+    }
+  }, FADE_INTERVAL);
+}
+
+/* Called when a voice starts */
+function handleVoiceStart(){
+  voiceCount = Math.max(0, voiceCount) + 1;
+  if (voiceCount === 1){
+    // duck currently playing music players (only those actually playing)
+    Object.values(musicPlayers).forEach(p => {
+      if (!p.paused){
+        // mark its current base (if not set)
+        if (p._currentBase === undefined) p._currentBase = p._baseVolume;
+      }
+    });
+    fadeMusicPlayersTo(DUCK_VOLUME);
+  }
+}
+
+/* Called when a voice stops/paused/ended */
+function handleVoiceStop(){
+  voiceCount = Math.max(0, voiceCount - 1);
+  if (voiceCount <= 0){
+    voiceCount = 0;
+    // restore to normal
+    fadeMusicPlayersTo(1.0);
+  }
+}
+
+/* Stop other voices (exclusivity) */
+function stopOtherVoices(exceptId){
+  Object.keys(voiceMap).forEach(id=>{
+    if (id !== exceptId){
+      const p = voiceMap[id];
+      if (!p.paused){
+        p.pause(); p.currentTime = 0;
+        const btn = document.getElementById(id); if (btn) btn.classList.remove("playing");
+        // reduce voice count because we stopped one
+        if (voiceCount > 0) voiceCount--;
+      }
+    }
+  });
+  if (voiceCount <= 0) { voiceCount = 0; fadeMusicPlayersTo(1.0); }
+}
+
+/* Toggle generic player (music or voice) */
+function togglePlayer(buttonId, player, isVoice=false){
+  const btn = document.getElementById(buttonId);
+  if (player.paused){
+    if (isVoice){
+      // exclusivity: stop others
+      stopOtherVoices(buttonId);
+      player.currentTime = 0; // start fresh per your final preference
+      player.play().catch(()=> setStatus("Playback blocked — tap screen"));
+      btn.classList.add("playing");
+      handleVoiceStart();
+      player.onended = ()=>{ btn.classList.remove("playing"); handleVoiceStop(); setStatus(buttonId + " ended"); };
+      activeVoiceId = buttonId;
+      setStatus(buttonId + " playing");
+    } else {
+      // music: play/resume (we do not auto-stop other music)
+      player.play().catch(()=> setStatus("Playback blocked — tap screen"));
+      btn.classList.add("playing");
+      setStatus(buttonId + " playing");
+      player.onended = ()=>{ btn.classList.remove("playing"); setStatus(buttonId + " ended"); };
+      // mark _currentBase so duck/restore can affect it later
+      if (player._currentBase === undefined) player._currentBase = player._baseVolume;
+    }
+  } else {
+    // Pause
+    player.pause();
+    btn.classList.remove("playing");
+    setStatus(buttonId + " paused");
+    if (isVoice){
+      handleVoiceStop();
+      // if we paused an active voice that was the tracked activeVoiceId, clear it
+      if (activeVoiceId === buttonId) activeVoiceId = null;
+    }
+  }
+  animateEQ();
+}
+
+/* Stop all */
+function stopAll(){
+  Object.entries(musicMap || {}).forEach(([id,p]) => { p.pause(); p.currentTime = 0; document.getElementById(id)?.classList.remove("playing"); p._currentBase = p._baseVolume; });
+  Object.entries(voiceMap || {}).forEach(([id,p]) => { p.pause(); p.currentTime = 0; document.getElementById(id)?.classList.remove("playing"); });
+  voiceCount = 0; fadeMusicPlayersTo(1.0); setStatus("All stopped"); animateEQ();
+}
+
+/* ====== Wiring UI ====== */
+const musicMap = {
+  cueBtn: musicPlayers.cue,
+  cue2Btn: musicPlayers.cue2,
+  ronyBtn: musicPlayers.rony,
+  sonyBtn: musicPlayers.sony,
+  tonyBtn: musicPlayers.tony
+};
+const voiceMapUI = {
+  elpBtn: voicePlayers.elp,
+  ronaldBtn: voicePlayers.ronald,
+  voice3Btn: voicePlayers.voice3
+};
+
+/* Attach listeners */
+Object.keys(musicMap).forEach(id=>{
+  document.getElementById(id).addEventListener("click", ()=> togglePlayer(id, musicMap[id], false));
+});
+Object.keys(voiceMapUI).forEach(id=>{
+  document.getElementById(id).addEventListener("click", ()=> {
+    // toggle voice and enforce exclusivity
+    togglePlayer(id, voiceMapUI[id], true);
+  });
+});
+
+/* STOP ALL button */
+document.getElementById("stopAll").addEventListener("click", stopAll);
+
+/* Master volume */
+masterEl.addEventListener("input", (e)=>{
+  masterVolume = Number(e.target.value)/100;
+  applyMasterVolume();
+  setStatus("Master volume: " + Math.round(masterVolume*100) + "%");
+});
+
+/* Keyboard shortcuts */
+window.addEventListener("keydown", (ev)=>{
+  const k = ev.key.toLowerCase();
+  if (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA") return;
+  if (k === "1") document.getElementById("cueBtn").click();
+  if (k === "2") document.getElementById("cue2Btn").click();
+  if (k === "3") document.getElementById("ronyBtn").click();
+  if (k === "4") document.getElementById("sonyBtn").click();
+  if (k === "5") document.getElementById("tonyBtn").click();
+  if (k === "q") document.getElementById("elpBtn").click();
+  if (k === "w") document.getElementById("ronaldBtn").click();
+  if (k === "e") document.getElementById("voice3Btn").click();
+  if (k === "s") { ev.preventDefault(); stopAll(); }
+});
+
+/* Update EQ initially */
+animateEQ();
+
+/* Safety: stop on unload */
+window.addEventListener("beforeunload", ()=> { try{ stopAll(); } catch(e){} });
+
+/* expose a tiny help status */
+setStatus("Ready — use keys 1–5 / Q W E / S to stop");
+</script>
+</body>
+</html>
